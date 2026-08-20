@@ -80,6 +80,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initMap();
   setupEventListeners();
   tryGeolocation();
+
+  // Pre-warm Render backend in background when loaded on Vercel
+  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    fetch(getApiUrl('/health')).catch(() => {});
+  }
 });
 
 // Setup Leaflet Map (100% Free OpenStreetMap)
@@ -437,42 +442,64 @@ function setupEventListeners() {
     }
   }
 
-  // Perform Lead Search
+  // Perform Lead Search with Cloud Cold-Start Handling & Auto-Retry
   async function performLeadSearch() {
     elements.btnSearch.disabled = true;
     elements.searchProgress.classList.remove('hidden');
     elements.progressText.textContent = `Scanning 1km area for "${state.keyword}" (< ${state.maxReviews} reviews)...`;
 
-    try {
-      const response = await fetch(getApiUrl('/api/search'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lat: state.lat,
-          lng: state.lng,
-          address: elements.inputAddress.value,
-          keyword: state.keyword,
-          radiusKm: state.radiusKm,
-          maxReviews: state.maxReviews,
-          maxResults: 100,
-          engine: state.engine
-        })
-      });
+    let attempts = 0;
+    const maxAttempts = 2;
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Search failed');
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        // Cold-start detection timer
+        const coldStartTimer = setTimeout(() => {
+          if (elements.progressText) {
+            elements.progressText.textContent = '⏳ Waking up cloud backend (Render spin-up takes ~25s on first scan)...';
+          }
+        }, 3500);
 
-      state.leads = data.leads || [];
-      applyFilters();
+        const response = await fetch(getApiUrl('/api/search'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lat: state.lat,
+            lng: state.lng,
+            address: elements.inputAddress.value,
+            keyword: state.keyword,
+            radiusKm: state.radiusKm,
+            maxReviews: state.maxReviews,
+            maxResults: 100,
+            engine: state.engine
+          })
+        });
 
-      elements.btnExportCsv.disabled = state.leads.length === 0;
+        clearTimeout(coldStartTimer);
 
-    } catch (err) {
-      alert('Error scanning leads: ' + err.message);
-    } finally {
-      elements.btnSearch.disabled = false;
-      elements.searchProgress.classList.add('hidden');
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Search failed');
+
+        state.leads = data.leads || [];
+        applyFilters();
+
+        elements.btnExportCsv.disabled = state.leads.length === 0;
+        break; // Success
+
+      } catch (err) {
+        console.warn(`Search attempt ${attempts} error:`, err);
+        if (attempts < maxAttempts) {
+          elements.progressText.textContent = '⏳ Cloud backend is starting up, retrying in 3 seconds...';
+          await new Promise(r => setTimeout(r, 3000));
+        } else {
+          alert('Error scanning leads: ' + err.message + '\n\nNote: If the Render backend was asleep, please wait 15 seconds and try once more.');
+        }
+      }
     }
+
+    elements.btnSearch.disabled = false;
+    elements.searchProgress.classList.add('hidden');
   }
 
 // Apply Filters & Render
