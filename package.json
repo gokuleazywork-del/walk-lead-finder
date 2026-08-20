@@ -1,0 +1,19 @@
+{
+  "name": "walk-lead-finder",
+  "version": "1.0.0",
+  "description": "Zero-API local business lead finder for Google Maps within 1km radius and < 200 reviews",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["lead-generation", "google-maps", "local-seo", "scraper", "b2b"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "puppeteer": "^24.3.0"
+  }
+}

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Walk Lead Finder | 100% Free Zero-API Google Maps 1km Lead Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Leaflet CSS (100% Free Map Engine) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- LZString for URL-safe cloud link encoding -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+  <div class="app-layout">
+    
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo-icon">
+          <i class="fa-solid fa-location-crosshairs"></i>
+        </div>
+        <div>
+          <h1 class="brand-title">Walk Lead <span>Finder</span></h1>
+          <p class="brand-subtitle">100% Free • Zero API Key • 1km Walking Radius &lt; 200 Reviews</p>
+        </div>
+      </div>
+      
+      <div class="header-badges">
+        <span class="badge free-badge">
+          <i class="fa-solid fa-shield-halved"></i> 100% Free Forever
+        </span>
+        <button id="btnBackendSettings" class="btn btn-secondary btn-sm" title="Configure Cloud Backend URL">
+          <i class="fa-solid fa-cloud"></i> Cloud API
+        </button>
+        <button id="btnLiveRadar" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #10b981, #059669); font-weight:700;">
+          <i class="fa-solid fa-mobile-screen-button"></i> 📱 Live Walking Radar
+        </button>
+        <button id="btnExportCsv" class="btn btn-secondary btn-sm" disabled>
+          <i class="fa-solid fa-file-csv"></i> Export CSV
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-container">
+      
+      <!-- Left Sidebar: Controls & Search -->
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h2 class="section-title"><i class="fa-solid fa-sliders"></i> Search Parameters</h2>
+          
+          <!-- Location Picker -->
+          <div class="form-group">
+            <label class="form-label">
+              <span>Target Location</span>
+              <button id="btnGps" class="btn-link" title="Use current GPS location">
+                <i class="fa-solid fa-crosshairs"></i> Current GPS
+              </button>
+            </label>
+            <div class="input-with-icon">
+              <i class="fa-solid fa-map-pin input-icon"></i>
+              <input type="text" id="inputAddress" class="form-control" placeholder="Search city, area or street..." value="Current Location">
+            </div>
+            <div id="geocodeSuggestions" class="suggestions-dropdown hidden"></div>
+            <div class="coords-display" id="coordsDisplay">
+              Lat: <span id="latVal">0.0000</span> | Lng: <span id="lngVal">0.0000</span>
+            </div>
+          </div>
+
+          <!-- Radius Slider -->
+          <div class="form-group">
+            <div class="slider-header">
+              <label class="form-label">Walking Radius</label>
+              <span class="slider-value" id="radiusDisplay">1.0 km (1000m)</span>
+            </div>
+            <input type="range" id="sliderRadius" class="form-range" min="0.2" max="5.0" step="0.1" value="1.0">
+            <div class="range-ticks">
+              <span>200m</span>
+              <span class="active-tick">1 km</span>
+              <span>2.5 km</span>
+              <span>5 km</span>
+            </div>
+          </div>
+
+          <!-- Business Category / Niche -->
+          <div class="form-group">
+            <label class="form-label">Business Category / Niche</label>
+            <div class="category-pills">
+              <button class="pill active" data-keyword="all">🌟 All 43 Sectors</button>
+              <button class="pill" data-keyword="unisex salons, barber shops, beauty parlours, bridal makeup, spa, nail art, dermatology">💇 Salons, Spas & Beauty</button>
+              <button class="pill" data-keyword="clinics, diagnostic centres, pharmacies, physiotherapy, gyms, yoga, opticians, pet clinics">🏥 Healthcare & Wellness</button>
+              <button class="pill" data-keyword="clothing boutiques, saree shops, footwear, jewellery shops, watch shops, tailoring">👗 Clothing & Fashion</button>
+              <button class="pill" data-keyword="mobile phone shops, electronics stores, laptop repair, home appliances, hardware stores">📱 Electronics & Hardware</button>
+              <button class="pill" data-keyword="car service centres, bike service, car wash detailing, auto spare parts, tyre shops">🚗 Automotive</button>
+              <button class="pill" data-keyword="furniture stores, home decor, paint shops, electrical shops, plumbing hardware, interior designers">🏠 Home & Lifestyle</button>
+              <button class="pill" data-keyword="coaching tuition centres, driving schools, printing xerox, courier logistics, travel agencies, real estate">🎓 Education & Services</button>
+            </div>
+            <div class="input-with-icon mt-2">
+              <i class="fa-solid fa-magnifying-glass input-icon"></i>
+              <input type="text" id="inputKeyword" class="form-control" placeholder="Or type custom niche (e.g. bakery, pet shop)...">
+            </div>
+          </div>
+
+          <!-- Review Threshold Filter -->
+          <div class="form-group">
+            <div class="slider-header">
+              <label class="form-label">Max Reviews Filter</label>
+              <span class="slider-value emerald" id="reviewsDisplay">&lt; 200 reviews</span>
+            </div>
+            <input type="range" id="sliderReviews" class="form-range" min="10" max="500" step="10" value="200">
+            <div class="quick-review-buttons">
+              <button class="btn-micro" data-reviews="50">&lt; 50 (🔥 Hot)</button>
+              <button class="btn-micro" data-reviews="100">&lt; 100</button>
+              <button class="btn-micro active" data-reviews="200">&lt; 200 (Default)</button>
+            </div>
+          </div>
+
+          <!-- Website Status Filter -->
+          <div class="form-group">
+            <label class="form-label">Website Status</label>
+            <select id="selectWebsite" class="form-control">
+              <option value="all">All Businesses</option>
+              <option value="no_website">🔴 Missing Website (High Value Lead)</option>
+              <option value="has_website">🟢 Has Website</option>
+            </select>
+          </div>
+
+          <!-- Engine Mode -->
+          <div class="form-group">
+            <label class="form-label">Extraction Engine</label>
+            <select id="selectEngine" class="form-control">
+              <option value="gmaps" selected>🌐 Google Maps Live (Real Reviews & Verified Contacts)</option>
+              <option value="hybrid">⚡ Comprehensive Deep Sweep (All Categories)</option>
+            </select>
+          </div>
+
+          <!-- Search Action Button -->
+          <button id="btnSearch" class="btn btn-primary btn-block btn-lg">
+            <i class="fa-solid fa-magnifying-glass-location"></i>
+            <span>Scan 1km Area for Leads</span>
+          </button>
+
+          <!-- Status / Progress Box -->
+          <div id="searchProgress" class="progress-box hidden">
+            <div class="spinner"></div>
+            <span id="progressText">Searching businesses within 1 km...</span>
+          </div>
+
+        </div>
+      </aside>
+
+      <!-- Right Content: Map + Results Dashboard -->
+      <main class="content-area">
+        
+        <!-- KPI Stat Badges -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-icon emerald"><i class="fa-solid fa-users-viewfinder"></i></div>
+            <div class="kpi-data">
+              <span class="kpi-number" id="kpiTotal">0</span>
+              <span class="kpi-label">Leads &lt; 200 Reviews</span>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon flame"><i class="fa-solid fa-fire"></i></div>
+            <div class="kpi-data">
+              <span class="kpi-number" id="kpiPrime">0</span>
+              <span class="kpi-label">Prime Leads (&lt; 50 Reviews)</span>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon purple"><i class="fa-solid fa-globe"></i></div>
+            <div class="kpi-data">
+              <span class="kpi-number" id="kpiNoWebsite">0</span>
+              <span class="kpi-label">Missing Website</span>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon blue"><i class="fa-solid fa-person-walking"></i></div>
+            <div class="kpi-data">
+              <span class="kpi-number" id="kpiRadius">1.0 km</span>
+              <span class="kpi-label">Walking Boundary</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Split View: Map + Results List -->
+        <div class="split-view">
+          
+          <!-- Interactive Map Container -->
+          <div class="map-card">
+            <div class="map-card-header">
+              <span><i class="fa-solid fa-map"></i> 1km Walking Radius Live Map</span>
+              <span class="map-hint"><i class="fa-solid fa-circle-info"></i> Click anywhere on the map to set new search center</span>
+            </div>
+            <div id="map" class="map-container"></div>
+          </div>
+
+          <!-- Leads List Container -->
+          <div class="results-card">
+            <div class="results-header">
+              <div class="results-title-group">
+                <h3><i class="fa-solid fa-list-check"></i> Qualified Leads</h3>
+                <span class="results-count" id="resultsCount">0 found</span>
+              </div>
+              
+              <div class="results-actions">
+                <div class="group-control-box">
+                  <label for="selectGroupBy" class="group-label"><i class="fa-solid fa-layer-group"></i> Group By:</label>
+                  <select id="selectGroupBy" class="select-group-by">
+                    <option value="none">Flat List</option>
+                    <option value="category">📂 Category</option>
+                    <option value="keyword">🔍 Search Keyword</option>
+                    <option value="review_tier">⭐ Review Tier</option>
+                    <option value="website">🌐 Website Status</option>
+                  </select>
+                </div>
+
+                <button id="btnToggleAllGroups" class="btn btn-micro hidden" title="Expand or Collapse All Groups">
+                  <i class="fa-solid fa-arrows-up-down"></i> <span id="toggleAllText">Collapse All</span>
+                </button>
+
+                <input type="text" id="filterInput" class="filter-input" placeholder="Quick filter results...">
+                <button id="btnCopyPhones" class="btn btn-micro" title="Copy all phone numbers">
+                  <i class="fa-regular fa-copy"></i> Copy Phones
+                </button>
+              </div>
+            </div>
+
+            <!-- Leads Container / Cards -->
+            <div id="leadsList" class="leads-list">
+              <div class="empty-state">
+                <div class="empty-icon"><i class="fa-solid fa-map-location-dot"></i></div>
+                <h4>Ready to Find Leads</h4>
+                <p>Click "Scan 1km Area for Leads" or click anywhere on the map to find businesses with fewer than 200 reviews.</p>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </main>
+
+    </div>
+  </div>
+
+  <!-- Share / Live Radar Modal -->
+  <div id="radarModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="logo-icon" style="width:36px; height:36px; font-size:1rem;"><i class="fa-solid fa-location-crosshairs"></i></div>
+          <div>
+            <h3 style="font-family:'Outfit'; font-size:1.15rem; font-weight:700;">📱 Live Walking Radar Link</h3>
+            <p style="font-size:0.75rem; color:#94a3b8;">Use your phone while walking to track leads in real time</p>
+          </div>
+        </div>
+        <button id="btnCloseModal" class="btn-icon" style="background:none; border:none; color:#94a3b8; font-size:1.2rem; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body" style="text-align:center; padding:16px 0;">
+        <div style="background:#fff; padding:12px; border-radius:14px; display:inline-block; margin-bottom:14px; box-shadow:0 10px 25px rgba(0,0,0,0.4);">
+          <img id="qrCodeImg" src="" alt="Scan QR Code" style="width:180px; height:180px; display:block;">
+        </div>
+        <p style="font-size:0.8rem; color:#cbd5e1; margin-bottom:12px;">📷 <b>Scan with your phone camera</b> to launch the live GPS radar</p>
+
+        <div style="display:flex; gap:8px; margin-bottom:14px;">
+          <input type="text" id="inputShareUrl" readonly class="form-control" style="font-size:0.8rem; background:rgba(0,0,0,0.3); color:#34d399;">
+          <button id="btnCopyShareUrl" class="btn btn-secondary" style="white-space:nowrap; padding:0 14px;">
+            <i class="fa-solid fa-copy"></i> Copy
+          </button>
+        </div>
+
+        <a id="btnOpenRadarDirect" href="#" target="_blank" class="btn btn-primary" style="width:100%; justify-content:center; text-decoration:none; padding:12px; font-weight:700;">
+          <i class="fa-solid fa-up-right-from-square"></i> Open Live Radar Map in New Tab
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Backend API Settings Modal -->
+  <div id="backendModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="logo-icon" style="width:36px; height:36px; font-size:1rem;"><i class="fa-solid fa-server"></i></div>
+          <div>
+            <h3 style="font-family:'Outfit'; font-size:1.15rem; font-weight:700;">⚙️ Cloud Backend Settings</h3>
+            <p style="font-size:0.75rem; color:#94a3b8;">Connect Vercel frontend to your high-speed Render backend</p>
+          </div>
+        </div>
+        <button id="btnCloseBackendModal" class="btn-icon" style="background:none; border:none; color:#94a3b8; font-size:1.2rem; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body" style="padding:16px 0;">
+        <div class="form-group">
+          <label class="form-label">Render Backend URL</label>
+          <input type="text" id="inputBackendUrl" class="form-control" placeholder="https://walk-lead-finder-api.onrender.com" value="">
+          <p style="font-size:0.75rem; color:#94a3b8; margin-top:6px;">Leave blank if running locally on localhost.</p>
+        </div>
+
+        <div id="backendStatus" style="font-size:0.8rem; margin-bottom:14px; padding:8px 12px; border-radius:8px; display:none;"></div>
+
+        <div style="display:flex; gap:10px;">
+          <button id="btnTestBackend" class="btn btn-secondary" style="flex:1; justify-content:center;">
+            <i class="fa-solid fa-bolt"></i> Test Connection
+          </button>
+          <button id="btnSaveBackend" class="btn btn-primary" style="flex:1; justify-content:center; font-weight:700;">
+            <i class="fa-solid fa-check"></i> Save & Use
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

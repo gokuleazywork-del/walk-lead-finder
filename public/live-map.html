@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Live Walking Radar | Field Navigator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- LZString Compression -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #0a0f1d;
+      --card-bg: rgba(16, 24, 40, 0.94);
+      --border-color: rgba(255, 255, 255, 0.12);
+      --accent-emerald: #10b981;
+      --accent-blue: #3b82f6;
+      --accent-purple: #8b5cf6;
+      --accent-amber: #f59e0b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-main);
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+
+    /* Top Floating Navigation Bar */
+    .top-bar {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 10px 14px;
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .radar-indicator {
+      width: 12px;
+      height: 12px;
+      background: var(--accent-emerald);
+      border-radius: 50%;
+      position: relative;
+    }
+
+    .radar-indicator::after {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      right: -4px;
+      bottom: -4px;
+      border-radius: 50%;
+      border: 2px solid var(--accent-emerald);
+      animation: pulse-ring 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+
+    @keyframes pulse-ring {
+      0% { transform: scale(0.6); opacity: 1; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+
+    .title-text {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #fff;
+    }
+
+    .subtitle-text {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .btn-top {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-top:active {
+      transform: scale(0.95);
+      background: rgba(255,255,255,0.18);
+    }
+
+    /* Floating Action Buttons */
+    .fab-container {
+      position: absolute;
+      right: 14px;
+      bottom: 24px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .fab {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      backdrop-filter: blur(12px);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .fab.active-follow {
+      background: var(--accent-emerald);
+      color: #052e16;
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.7);
+    }
+
+    .fab:active {
+      transform: scale(0.92);
+    }
+
+    /* Bottom Lead Card Popup */
+    .lead-popup-card {
+      position: absolute;
+      bottom: 20px;
+      left: 12px;
+      right: 74px;
+      z-index: 1001;
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+      transform: translateY(140%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .lead-popup-card.show {
+      transform: translateY(0);
+    }
+
+    .lead-popup-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .lead-popup-name {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.25;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 2px 6px;
+    }
+
+    .lead-popup-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .badge-pill {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
+    .badge-pill.reviews {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    .badge-pill.distance {
+      background: rgba(59, 130, 246, 0.2);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+    }
+
+    .badge-pill.category {
+      background: rgba(255, 255, 255, 0.08);
+      color: #cbd5e1;
+    }
+
+    .lead-popup-address {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .lead-popup-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 8px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+    }
+
+    .action-btn.call {
+      background: var(--accent-emerald);
+      color: #052e16;
+    }
+
+    .action-btn.nav {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      border: 1px solid var(--border-color);
+    }
+
+    /* Live GPS Pulsing Marker */
+    .user-pulse-marker {
+      width: 22px;
+      height: 22px;
+      background: #3b82f6;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 15px #3b82f6;
+      position: relative;
+    }
+
+    .user-pulse-marker::after {
+      content: '';
+      position: absolute;
+      top: -8px;
+      left: -8px;
+      right: -8px;
+      bottom: -8px;
+      border-radius: 50%;
+      border: 2px solid #60a5fa;
+      animation: user-radar 2s infinite;
+    }
+
+    @keyframes user-radar {
+      0% { transform: scale(0.8); opacity: 1; }
+      100% { transform: scale(2.8); opacity: 0; }
+    }
+
+    /* Custom Lead Pin Marker */
+    .lead-pin {
+      width: 32px;
+      height: 32px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      border: 2px solid #fff;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .lead-pin i {
+      transform: rotate(45deg);
+      font-size: 0.8rem;
+      color: #fff;
+    }
+
+    .lead-pin.hot {
+      background: linear-gradient(135deg, #10b981, #059669);
+    }
+
+    .lead-pin.warm {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+    }
+
+    /* Toast Notification */
+    .toast-msg {
+      position: fixed;
+      top: 75px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: #10b981;
+      color: #052e16;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 10px 18px;
+      border-radius: 30px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .toast-msg.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* Loading Overlay */
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg-dark);
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      transition: opacity 0.4s ease;
+    }
+
+    .loading-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid rgba(16, 185, 129, 0.2);
+      border-top-color: var(--accent-emerald);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Toast -->
+  <div id="toast" class="toast-msg">✅ Link copied to clipboard!</div>
+
+  <!-- Loading State -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <h2 style="font-family:'Outfit'; font-size:1.1rem; font-weight:700;">Connecting to Live Walking Radar...</h2>
+    <p style="font-size:0.8rem; color:var(--text-muted);">Please allow GPS location when prompted</p>
+  </div>
+
+  <!-- Map Canvas -->
+  <div id="map"></div>
+
+  <!-- Top Floating Header -->
+  <div class="top-bar">
+    <div class="brand-group">
+      <div class="radar-indicator"></div>
+      <div>
+        <div class="title-text" id="headerTitle">Live Walking Radar</div>
+        <div class="subtitle-text" id="statusText">Tracking your GPS in 1km zone...</div>
+      </div>
+    </div>
+    <button id="btnShare" class="btn-top">
+      <i class="fa-solid fa-share-nodes"></i> Share
+    </button>
+  </div>
+
+  <!-- Floating Controls -->
+  <div class="fab-container">
+    <button id="btnCenterMe" class="fab active-follow" title="Center on my location">
+      <i class="fa-solid fa-location-arrow"></i>
+    </button>
+  </div>
+
+  <!-- Bottom Lead Detail Card -->
+  <div id="leadPopup" class="lead-popup-card">
+    <div class="lead-popup-header">
+      <div class="lead-popup-name" id="popupName">Business Name</div>
+      <button class="close-btn" id="btnClosePopup"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="lead-popup-badges">
+      <span class="badge-pill reviews" id="popupReviews">⭐ 12 reviews</span>
+      <span class="badge-pill distance" id="popupDistance">🚶 120m away</span>
+      <span class="badge-pill category" id="popupCategory">Category</span>
+    </div>
+    <div class="lead-popup-address" id="popupAddress">123 Street Address</div>
+    <div class="lead-popup-actions">
+      <a href="tel:" id="popupCallBtn" class="action-btn call">
+        <i class="fa-solid fa-phone"></i> Call Lead
+      </a>
+      <a href="#" target="_blank" id="popupNavBtn" class="action-btn nav">
+        <i class="fa-solid fa-diamond-turn-right"></i> Directions
+      </a>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // State
+    const state = {
+      map: null,
+      userMarker: null,
+      radiusCircle: null,
+      leadMarkers: [],
+      leads: [],
+      userLat: null,
+      userLng: null,
+      centerLat: 13.03067,
+      centerLng: 80.10907,
+      radiusKm: 1.0,
+      followUser: true,
+      selectedLead: null
+    };
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    // Haversine Distance
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+      const R = 6371000;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return Math.round(R * c);
+    }
+
+    // Initialize Map
+    function initMap() {
+      if (state.map) return;
+      state.map = L.map('map', {
+        zoomControl: false,
+        attributionControl: false
+      }).setView([state.centerLat, state.centerLng], 16);
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19
+      }).addTo(state.map);
+
+      // Draw Radius Circle
+      state.radiusCircle = L.circle([state.centerLat, state.centerLng], {
+        radius: state.radiusKm * 1000,
+        color: '#10b981',
+        weight: 2,
+        dashArray: '6, 8',
+        fillColor: '#10b981',
+        fillOpacity: 0.08
+      }).addTo(state.map);
+
+      state.map.on('click', () => {
+        document.getElementById('leadPopup').classList.remove('show');
+      });
+
+      state.map.on('dragstart', () => {
+        state.followUser = false;
+        document.getElementById('btnCenterMe').classList.remove('active-follow');
+      });
+    }
+
+    // Render Leads on Map
+    function renderLeads() {
+      state.leadMarkers.forEach(m => state.map.removeLayer(m));
+      state.leadMarkers = [];
+
+      state.leads.forEach((lead) => {
+        if (!lead.lat || !lead.lng) return;
+
+        const isHot = lead.reviews < 50;
+        const iconHtml = `
+          <div class="lead-pin ${isHot ? 'hot' : 'warm'}">
+            <i class="fa-solid fa-briefcase"></i>
+          </div>
+        `;
+
+        const customIcon = L.divIcon({
+          html: iconHtml,
+          className: 'custom-lead-icon',
+          iconSize: [32, 32],
+          iconAnchor: [16, 32]
+        });
+
+        const marker = L.marker([lead.lat, lead.lng], { icon: customIcon }).addTo(state.map);
+
+        marker.on('click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          showLeadCard(lead);
+        });
+
+        state.leadMarkers.push(marker);
+      });
+    }
+
+    // Show Lead Card Popup
+    function showLeadCard(lead) {
+      state.selectedLead = lead;
+      const popup = document.getElementById('leadPopup');
+      
+      document.getElementById('popupName').textContent = lead.name;
+      document.getElementById('popupReviews').textContent = `⭐ ${lead.reviews} reviews (${lead.rating || 'N/A'})`;
+      document.getElementById('popupCategory').textContent = lead.searchKeyword ? `${lead.category || 'Business'} · ${lead.searchKeyword}` : (lead.category || 'Business');
+      document.getElementById('popupAddress').textContent = lead.address || 'Nearby';
+
+      const currentDist = state.userLat ? calculateDistance(state.userLat, state.userLng, lead.lat, lead.lng) : lead.distanceMeters;
+      document.getElementById('popupDistance').textContent = `🚶 ${currentDist}m away`;
+
+      const callBtn = document.getElementById('popupCallBtn');
+      if (lead.phone) {
+        callBtn.href = `tel:${lead.phone}`;
+        callBtn.style.display = 'flex';
+      } else {
+        callBtn.style.display = 'none';
+      }
+
+      // Directions button
+      const navBtn = document.getElementById('popupNavBtn');
+      navBtn.href = lead.googleMapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${lead.lat},${lead.lng}`;
+      navBtn.target = "_blank";
+
+      popup.classList.add('show');
+    }
+
+    // Update User GPS Position
+    function updateUserPosition(lat, lng, accuracy) {
+      state.userLat = lat;
+      state.userLng = lng;
+
+      document.getElementById('statusText').textContent = `Live GPS Active (±${accuracy}m) · ${state.leads.length} Leads`;
+
+      if (!state.userMarker) {
+        const userIcon = L.divIcon({
+          html: '<div class="user-pulse-marker"></div>',
+          className: 'custom-user-marker',
+          iconSize: [22, 22],
+          iconAnchor: [11, 11]
+        });
+        state.userMarker = L.marker([lat, lng], { icon: userIcon, zIndexOffset: 1000 }).addTo(state.map);
+      } else {
+        state.userMarker.setLatLng([lat, lng]);
+      }
+
+      if (state.followUser) {
+        state.map.panTo([lat, lng], { animate: true, duration: 0.8 });
+      }
+
+      if (state.selectedLead) {
+        const updatedDist = calculateDistance(lat, lng, state.selectedLead.lat, state.selectedLead.lng);
+        document.getElementById('popupDistance').textContent = `🚶 ${updatedDist}m away`;
+      }
+    }
+
+    // Start Live GPS Position Watcher
+    function startGpsTracking() {
+      if (!navigator.geolocation) {
+        document.getElementById('statusText').textContent = 'GPS not supported on device';
+        return;
+      }
+
+      // Request immediate single position
+      navigator.geolocation.getCurrentPosition(
+        (pos) => updateUserPosition(pos.coords.latitude, pos.coords.longitude, Math.round(pos.coords.accuracy)),
+        (err) => console.warn('Single GPS error:', err.message),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+
+      // Continuous Watch
+      navigator.geolocation.watchPosition(
+        (position) => {
+          updateUserPosition(position.coords.latitude, position.coords.longitude, Math.round(position.coords.accuracy));
+        },
+        (error) => {
+          console.warn('GPS error:', error.message);
+          document.getElementById('statusText').textContent = 'Tap 📍 to enable GPS position';
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 1000
+        }
+      );
+    }
+
+    // Toast helper
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      if (!toast) return;
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    // Load Data from ID, URL Hash, or LocalStorage
+    async function loadData() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionId = urlParams.get('id');
+
+      // 1. Try URL Hash (Permanent self-contained data)
+      try {
+        const hash = window.location.hash;
+        if (hash && hash.startsWith('#data=')) {
+          const compressed = hash.replace('#data=', '');
+          const jsonStr = LZString.decompressFromEncodedURIComponent(compressed);
+          if (jsonStr) {
+            const parsed = JSON.parse(jsonStr);
+            state.leads = parsed.leads || [];
+            state.centerLat = parsed.center?.lat || state.centerLat;
+            state.centerLng = parsed.center?.lng || state.centerLng;
+            state.radiusKm = parsed.radiusKm || 1.0;
+            localStorage.setItem('walk_radar_saved_session', jsonStr);
+          }
+        }
+      } catch (err) {
+        console.warn('Hash parsing failed:', err);
+      }
+
+      // 2. Try Serverless Session Endpoint (if link was ?id=...)
+      if (state.leads.length === 0 && sessionId) {
+        try {
+          const res = await fetch(`/api/session?id=${sessionId}`);
+          if (res.ok) {
+            const item = await res.json();
+            const parsed = typeof item.data === 'string' ? JSON.parse(item.data) : item.data;
+            state.leads = parsed.leads || [];
+            state.centerLat = parsed.center?.lat || state.centerLat;
+            state.centerLng = parsed.center?.lng || state.centerLng;
+            state.radiusKm = parsed.radiusKm || 1.0;
+            localStorage.setItem('walk_radar_saved_session', JSON.stringify(parsed));
+          }
+        } catch (e) {
+          console.warn('Could not fetch serverless session, checking localStorage fallback');
+        }
+      }
+
+      // 3. Try LocalStorage Fallback (Previously saved on this phone/device)
+      if (state.leads.length === 0) {
+        try {
+          const cached = localStorage.getItem('walk_radar_saved_session');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            state.leads = parsed.leads || [];
+            state.centerLat = parsed.center?.lat || state.centerLat;
+            state.centerLng = parsed.center?.lng || state.centerLng;
+            state.radiusKm = parsed.radiusKm || 1.0;
+          }
+        } catch (e) {}
+      }
+
+      document.getElementById('headerTitle').textContent = `Walking Radar (${state.radiusKm}km)`;
+      initMap();
+      renderLeads();
+      startGpsTracking();
+
+      document.getElementById('loadingOverlay').classList.add('hidden');
+
+      if (state.leads.length === 0) {
+        showToast('⚠️ No leads in this link. Generate a fresh link from your dashboard.');
+        document.getElementById('statusText').textContent = 'No leads found · Re-scan from dashboard';
+      }
+    }
+
+    // Force Center on User GPS
+    document.getElementById('btnCenterMe').addEventListener('click', () => {
+      state.followUser = true;
+      document.getElementById('btnCenterMe').classList.add('active-follow');
+
+      if (navigator.geolocation) {
+        document.getElementById('statusText').textContent = 'Acquiring GPS location...';
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            updateUserPosition(lat, lng, Math.round(pos.coords.accuracy));
+            state.map.setView([lat, lng], 17, { animate: true });
+            showToast('📍 Centered on your live position');
+          },
+          (err) => {
+            alert('Please enable Location / GPS permission in your mobile browser settings.');
+          },
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
+      }
+    });
+
+    document.getElementById('btnClosePopup').addEventListener('click', () => {
+      document.getElementById('leadPopup').classList.remove('show');
+    });
+
+    // Share Button Click Handler
+    document.getElementById('btnShare').addEventListener('click', async () => {
+      const shareUrl = window.location.href;
+      const shareTitle = `Live Walking Radar (${state.leads.length} Leads)`;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: shareTitle,
+            text: `Explore ${state.leads.length} local business leads in our walking zone!`,
+            url: shareUrl
+          });
+          return;
+        } catch (e) {
+          // Fallback to clipboard
+        }
+      }
+
+      // Fallback copy
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        showToast('✅ Radar link copied to clipboard!');
+      } catch (err) {
+        // Prompt copy fallback
+        prompt('Copy this live map link:', shareUrl);
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', loadData);
+  </script>
+</body>
+</html>

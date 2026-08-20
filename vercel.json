@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "public": true,
+  "routes": [
+    {
+      "src": "/api/session",
+      "dest": "/cloud-radar/api/session.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
+    }
+  ]
+}

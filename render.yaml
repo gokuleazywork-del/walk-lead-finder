@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: walk-lead-finder-api
+    runtime: docker
+    plan: free
+    region: singapore
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /health
