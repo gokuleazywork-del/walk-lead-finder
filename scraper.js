@@ -42,7 +42,7 @@ async function getBrowser() {
   }
   sharedBrowser = await puppeteer.launch({
     headless: 'new',
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || (process.platform === 'linux' ? '/usr/bin/chromium' : undefined),
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
