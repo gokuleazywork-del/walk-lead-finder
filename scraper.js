@@ -49,17 +49,23 @@ async function getBrowser() {
       '--disable-dev-shm-usage',
       '--disable-accelerated-2d-canvas',
       '--disable-gpu',
+      '--disable-software-rasterizer',
       '--no-first-run',
       '--no-zygote',
       '--disable-extensions',
-      '--window-size=1280,800'
+      '--disable-default-apps',
+      '--disable-sync',
+      '--mute-audio',
+      '--hide-scrollbars',
+      '--window-size=1024,768',
+      '--js-flags=--max-old-space-size=160'
     ]
   });
   return sharedBrowser;
 }
 
 /**
- * Fast Google Maps Lead Scraper (Parallel batch execution in seconds)
+ * Fast Google Maps Lead Scraper (Low-Memory Parallel Execution)
  */
 async function scrapeGoogleMaps({
   lat,
@@ -76,16 +82,16 @@ async function scrapeGoogleMaps({
   try {
     const browser = await getBrowser();
     page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 800 });
+    await page.setViewport({ width: 1024, height: 768 });
     await page.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     );
 
-    // Block images, fonts and media for fast loading
+    // Block heavy assets (images, fonts, media, stylesheets) to save 80% RAM
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       const type = req.resourceType();
-      if (type === 'image' || type === 'font' || type === 'media') {
+      if (['image', 'font', 'media', 'stylesheet', 'other'].includes(type)) {
         req.abort();
       } else {
         req.continue();

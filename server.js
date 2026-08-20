@@ -267,37 +267,53 @@ app.post('/api/search', async (req, res) => {
       searchQueries = [keyword];
     }
 
-    // Safe Concurrency Batch Worker Pool (Method 1: Safe 8-tab concurrent batches)
-    const BATCH_SIZE = 8;
-    console.log(`[Search] Dispatching ${searchQueries.length} keywords in safe concurrent batches of ${BATCH_SIZE}...`);
+    if (engine === 'osm') {
+      console.log(`[Search] Using high-speed OpenStreetMap Overpass engine...`);
+      combinedLeads = await searchOsmBusinesses({
+        lat,
+        lng,
+        radiusKm,
+        keyword: keyword === 'all' ? '' : keyword
+      });
+    } else {
+      // Safe Low-Memory Concurrency Batch Worker Pool (2 concurrent tabs on 512MB Render instances)
+      const BATCH_SIZE = 2;
+      console.log(`[Search] Dispatching ${searchQueries.length} keywords in safe low-memory batches of ${BATCH_SIZE}...`);
 
-    for (let i = 0; i < searchQueries.length; i += BATCH_SIZE) {
-      const batch = searchQueries.slice(i, i + BATCH_SIZE);
-      console.log(`[Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(searchQueries.length / BATCH_SIZE)}] Processing ${batch.length} keywords in parallel...`);
+      for (let i = 0; i < searchQueries.length; i += BATCH_SIZE) {
+        const batch = searchQueries.slice(i, i + BATCH_SIZE);
+        console.log(`[Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(searchQueries.length / BATCH_SIZE)}] Processing ${batch.length} keywords in parallel...`);
 
-      const batchPromises = batch.map(query =>
-        scrapeGoogleMaps({
-          lat,
-          lng,
-          keyword: query,
-          radiusKm,
-          maxReviews,
-          maxResults: searchQueries.length > 1 ? 25 : maxResults
-        }).catch(err => {
-          console.warn(`Error scraping "${query}":`, err.message);
-          return [];
-        })
-      );
+        const batchPromises = batch.map(query =>
+          scrapeGoogleMaps({
+            lat,
+            lng,
+            keyword: query,
+            radiusKm,
+            maxReviews,
+            maxResults: searchQueries.length > 1 ? 25 : maxResults
+          }).catch(err => {
+            console.warn(`Error scraping "${query}":`, err.message);
+            return [];
+          })
+        );
 
-      const batchResults = await Promise.all(batchPromises);
+        const batchResults = await Promise.all(batchPromises);
 
-      for (const gmapsLeads of batchResults) {
-        for (const lead of gmapsLeads) {
-          const key = (lead.name + '_' + (lead.address || '')).toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (!seenNames.has(key)) {
-            seenNames.add(key);
-            combinedLeads.push(lead);
+        for (const gmapsLeads of batchResults) {
+          for (const lead of gmapsLeads) {
+            const key = (lead.name + '_' + (lead.address || '')).toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (!seenNames.has(key)) {
+              seenNames.add(key);
+              combinedLeads.push(lead);
+            }
           }
+        }
+
+        // Early stopping when target maxResults reached
+        if (combinedLeads.length >= maxResults) {
+          console.log(`[Search] Target lead count (${maxResults}) reached! Stopping further batches.`);
+          break;
         }
       }
     }
