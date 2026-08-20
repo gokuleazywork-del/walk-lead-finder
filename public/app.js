@@ -18,8 +18,10 @@ const state = {
 };
 
 // Helper to get active API URL (supports local server and Render cloud backend)
+const DEFAULT_CLOUD_BACKEND = 'https://walk-lead-finder.onrender.com';
+
 function getApiUrl(endpoint) {
-  const configuredBackend = localStorage.getItem('walk_lead_backend_url') || (window.BACKEND_API_URL || '');
+  const configuredBackend = localStorage.getItem('walk_lead_backend_url') || (window.BACKEND_API_URL || DEFAULT_CLOUD_BACKEND);
   if (configuredBackend && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
     return `${configuredBackend.replace(/\/$/, '')}${endpoint}`;
   }
