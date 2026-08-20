@@ -87,11 +87,11 @@ async function scrapeGoogleMaps({
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     );
 
-    // Block heavy assets (images, fonts, media, stylesheets) to save 80% RAM
+    // Block heavy assets (images, fonts, media) while preserving stylesheets for dynamic maps rendering
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       const type = req.resourceType();
-      if (['image', 'font', 'media', 'stylesheet', 'other'].includes(type)) {
+      if (['image', 'font', 'media'].includes(type)) {
         req.abort();
       } else {
         req.continue();

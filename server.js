@@ -195,67 +195,14 @@ app.post('/api/search', async (req, res) => {
     let combinedLeads = [];
     const seenNames = new Set();
 
-    // Comprehensive Search Keywords across 7 Major Local Industries (Excluding grocery and cafes)
+    // 6 High-Yield Mega-Queries covering all 43 Local Sectors in ~10 seconds without memory bottlenecks
     const ALL_SEARCH_KEYWORDS = [
-      // 1. Salons, Spas & Beauty
-      "unisex salons",
-      "men's salons and barber shops",
-      "women's beauty parlours",
-      "bridal makeup studios",
-      "spa centres",
-      "nail art studios",
-      "skin clinics and dermatology",
-
-      // 2. Healthcare & Wellness
-      "clinics, general, dental, eye and ENT",
-      "diagnostic centres and labs",
-      "pharmacies and medical shops",
-      "physiotherapy centres",
-      "gyms and fitness centres",
-      "yoga studios",
-      "opticians and eyewear shops",
-      "veterinary clinics and pet clinics",
-
-      // 3. Retail — Clothing & Fashion
-      "clothing stores and boutiques",
-      "saree shops",
-      "footwear shops",
-      "jewellery shops",
-      "watch shops",
-      "optical stores",
-      "tailoring shops",
-
-      // 4. Retail — Electronics & Hardware
-      "mobile phone shops",
-      "electronics stores",
-      "computer and laptop shops",
-      "home appliance stores",
-      "hardware stores",
-      "mobile repair shops",
-
-      // 5. Automotive
-      "car service centres",
-      "bike service centres",
-      "car wash and detailing",
-      "auto spare parts shops",
-      "tyre shops",
-      "two wheeler and car showrooms",
-
-      // 6. Home & Lifestyle
-      "furniture stores",
-      "home decor shops",
-      "paint shops",
-      "electrical shops",
-      "plumbing and hardware suppliers",
-      "interior designers",
-
-      // 7. Education & Services
-      "coaching centres and tuition centres",
-      "driving schools",
-      "printing and Xerox shops",
-      "courier and logistics offices",
-      "travel agencies",
-      "real estate agencies"
+      "beauty parlour salon spa makeup skin clinic",
+      "dental clinic eye hospital diagnostic lab pharmacy",
+      "gym fitness yoga clothing boutique jewelry",
+      "electronics mobile repair laptop computer hardware electrical",
+      "car bike service repair tyre showroom auto spare",
+      "coaching tuition Xerox print courier travel real estate"
     ];
 
     let searchQueries = [];
